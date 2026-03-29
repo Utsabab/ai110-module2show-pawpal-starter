@@ -2,6 +2,11 @@
 
 ## 1. System Design
 
+Three core actions for users:
+- Add/Edit/Delete tasks
+- Track each task planned for the day
+- Set Owner's preference such as availability, priority, etc..
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.
