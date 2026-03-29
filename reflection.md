@@ -10,9 +10,11 @@ Three core actions for users:
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+
 The UML has four major classes namely, Owner, Pet, Task and Scheduler. Owner class has details on Owner and Pet class has details on pets. Task class has attributes and methods for each task. Scheduler is the core logic implementation class which generates daily plan for owner based on the owner's preferences and pets. An owner can have 0 to many pets. A pet can have 0 to many tasks associated. A scheduler can have only one owner. A scheduler can have 0 to many tasks.
 
 - What classes did you include, and what responsibilities did you assign to each?
+
 There are four major classes in the UML design which are described below:
 
 1. **Owner:** Owner class has details on owner's name, age, gender, available hours, and preferences and has methods such as set_preferences, add & remove pet, get available times for owner.
