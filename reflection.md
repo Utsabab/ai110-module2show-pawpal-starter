@@ -64,13 +64,22 @@ Missing relationships:
 **a. Constraints and priorities**
 
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
+
+Scheduler takes into consideration the preference of an Owner such as time to avoid scheduling task and preventing duplicate tasks to be scheduled, and provides options in the app to let owner choose how to visualize the list of tasks for the day based on priority or the sorted time value.
+
 - How did you decide which constraints mattered most?
+
+Owner's preference matters the most as the Owner takes care of the pet and the schedule should be based on the owner's preferences and availability of time. The app also provides the functionality to let Owner generate plan based on just the priority or the sorted start time of the tasks which gives owner flexibility to decide what kind of plan they require.
 
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
+
+One trade off the scheduler makes is that while consideting Owner's available time, it accepts task in sorted order based on time and the moment Owner's available time is exhausted, it never looks backs to check which were the higher priority and which were the lower priority tasks. In a given available time, it is more important to pack in higher priority tasks with less time such as vet pills and feeding than lower priority earlier appearing tasks such as walking.  
+
 - Why is that tradeoff reasonable for this scenario?
 
+This tradeoff is made by Scheduler in this scenario as the linear task picking algorithm currently implemented runs in O(nlogn). If the optimal solution is implemented based on priority, it is a 0/1 knapsack problem which is NP-hard problem and requires dynamic programming. greedy approach is simpler to debug and explain to the owner.
 ---
 
 ## 3. AI Collaboration

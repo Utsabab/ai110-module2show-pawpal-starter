@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import date, timedelta
 from typing import Optional, Any
 
 
@@ -17,6 +18,8 @@ class Task:
     priority: int                         # 1 (highest) – 5 (lowest)
     preferred_time: str                   # morning | afternoon | evening | anytime
     frequency: str                        # daily | weekly | as-needed
+    start_time: Optional[str] = None     # "HH:MM" clock time within the slot, e.g. "08:30"
+    due_date: Optional[str] = None       # ISO "YYYY-MM-DD"; set automatically on recurrence
     is_completed: bool = False
 
     def set_priority(self, level: int) -> None:
@@ -48,6 +51,8 @@ class Task:
             "duration_minutes": self.duration_minutes,
             "priority": self.priority,
             "preferred_time": self.preferred_time,
+            "start_time": self.start_time,
+            "due_date": self.due_date,
             "frequency": self.frequency,
             "is_completed": self.is_completed,
         }
@@ -155,6 +160,20 @@ class Owner:
 # Time-slot ordering used by prioritize_tasks: earlier in the day = lower index.
 _TIME_SLOT_ORDER = {"morning": 0, "afternoon": 1, "evening": 2, "anytime": 3}
 
+# Realistic minute budget per slot — used by detect_conflicts() for untimed tasks.
+_SLOT_BUDGET_MINUTES = {"morning": 240, "afternoon": 240, "evening": 180, "anytime": 60}
+
+
+def _to_minutes(hhmm: str) -> int:
+    """Convert 'HH:MM' to total minutes since midnight (e.g. '08:30' → 510)."""
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _to_hhmm(minutes: int) -> str:
+    """Convert total minutes since midnight back to 'HH:MM' (e.g. 510 → '08:30')."""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
 
 class Scheduler:
     def __init__(self, owner: Owner, date: str) -> None:
@@ -188,6 +207,40 @@ class Scheduler:
                 raise ValueError(f"Task has no attribute '{key}'.")
             setattr(task, key, value)
 
+    def complete_task(self, pet_name: str, task_name: str) -> Optional[Task]:
+        """Mark a task complete and, for recurring tasks, register the next occurrence.
+
+        - Finds the task on the named pet and calls mark_complete().
+        - If frequency is 'daily'  → next occurrence due_date = scheduler.date + 1 day.
+        - If frequency is 'weekly' → next occurrence due_date = scheduler.date + 7 days.
+        - 'as-needed' tasks are marked done with no follow-up created.
+
+        The next occurrence is a fresh Task (is_completed=False, new due_date) added
+        to the same pet via add_task(), ready to be picked up by the next
+        generate_plan() call.
+
+        Returns the newly created Task if one was made, otherwise None.
+        """
+        pet = next((p for p in self.owner.pets if p.name == pet_name), None)
+        if pet is None:
+            raise ValueError(f"No pet named '{pet_name}' found.")
+
+        task = next((t for t in pet.tasks if t.name == task_name), None)
+        if task is None:
+            raise ValueError(f"No task named '{task_name}' found for pet '{pet_name}'.")
+
+        task.mark_complete()
+
+        if task.frequency not in ("daily", "weekly"):
+            return None
+
+        days_ahead = 1 if task.frequency == "daily" else 7
+        next_due = (date.fromisoformat(self.date) + timedelta(days=days_ahead)).isoformat()
+
+        next_task = replace(task, is_completed=False, due_date=next_due)
+        self.add_task(pet, next_task)
+        return next_task
+
     def prioritize_tasks(self, tasks: list[Task]) -> list[Task]:
         """Sort tasks first by preferred_time bucket
         (morning → afternoon → evening → anytime), then by priority (1 = highest)
@@ -198,6 +251,105 @@ class Scheduler:
             key=lambda t: (_TIME_SLOT_ORDER.get(t.preferred_time, 3), t.priority),
         )
 
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Sort tasks by exact clock time within their time slot.
+
+        Sort key (three levels):
+          1. Slot bucket  — morning(0) → afternoon(1) → evening(2) → anytime(3)
+          2. start_time   — "HH:MM" string; tasks without a start_time ("") sort
+                            before timed tasks so they appear at the top of each slot.
+          3. priority     — 1 (highest) within ties at the same slot + time.
+
+        Use this instead of prioritize_tasks() when tasks carry explicit start_time
+        values and you need precise intra-slot ordering (e.g. "08:00 Hip Med" before
+        "08:30 Morning Walk" even though both are priority 1 in the morning slot).
+        """
+        return sorted(
+            tasks,
+            key=lambda t: (
+                _TIME_SLOT_ORDER.get(t.preferred_time, 3),
+                t.start_time or "",   # "" < any "HH:MM", so untimed tasks sort first
+                t.priority,
+            ),
+        )
+
+    def filter_by_pet(self, pet_name: str) -> list[ScheduledTask]:
+        """Return only the scheduled entries that belong to the named pet.
+
+        Comparison is case-insensitive so 'luna' and 'Luna' both match.
+        Returns an empty list if the pet has no tasks in the current plan
+        or if generate_plan() has not been run yet.
+        """
+        target = pet_name.strip().lower()
+        return [e for e in self.daily_plan if e.pet_name.lower() == target]
+
+    def filter_by_status(self, completed: bool) -> list[ScheduledTask]:
+        """Return scheduled entries whose completion status matches the flag.
+
+        Pass completed=True  → tasks already marked done.
+        Pass completed=False → tasks still pending.
+        """
+        return [e for e in self.daily_plan if e.task.is_completed == completed]
+
+    def detect_conflicts(self) -> list[str]:
+        """Scan daily_plan for scheduling conflicts and return warning strings.
+
+        Two detection strategies are applied independently:
+
+        1. Timed overlap (tasks that carry a start_time):
+           Converts each task's start_time to minutes since midnight and computes
+           its end = start + duration_minutes.  Every pair of timed tasks is checked
+           with the standard interval-overlap test:
+               a.start < b.end  AND  b.start < a.end
+           A warning is emitted for every overlapping pair, regardless of whether
+           the tasks belong to the same pet or different pets.
+
+        2. Slot overload (tasks without a start_time):
+           Groups untimed tasks by preferred_time slot and sums their durations.
+           If the total for a slot exceeds _SLOT_BUDGET_MINUTES for that slot a
+           warning is emitted.  This is a lightweight heuristic — it cannot detect
+           precise overlaps without clock times, but it flags obviously overloaded
+           slots before the owner's day begins.
+
+        Returns an empty list when no conflicts are found.  Warnings are plain
+        strings so callers can print, log, or surface them in a UI without the
+        method itself crashing the program.
+        """
+        warnings: list[str] = []
+
+        timed   = [e for e in self.daily_plan if e.task.start_time]
+        untimed = [e for e in self.daily_plan if not e.task.start_time]
+
+        # ── Strategy 1: exact overlap between timed tasks ───────────────────
+        for i, a in enumerate(timed):
+            a_start = _to_minutes(a.task.start_time)
+            a_end   = a_start + a.task.duration_minutes
+            for b in timed[i + 1:]:
+                b_start = _to_minutes(b.task.start_time)
+                b_end   = b_start + b.task.duration_minutes
+                if a_start < b_end and b_start < a_end:
+                    warnings.append(
+                        f"CONFLICT: '{a.task.name}' ({a.pet_name}, "
+                        f"{a.task.start_time}–{_to_hhmm(a_end)}) overlaps with "
+                        f"'{b.task.name}' ({b.pet_name}, "
+                        f"{b.task.start_time}–{_to_hhmm(b_end)})."
+                    )
+
+        # ── Strategy 2: slot overload for untimed tasks ──────────────────────
+        from collections import defaultdict
+        slot_totals: dict[str, int] = defaultdict(int)
+        for e in untimed:
+            slot_totals[e.task.preferred_time] += e.task.duration_minutes
+        for slot, total in slot_totals.items():
+            budget = _SLOT_BUDGET_MINUTES.get(slot, 120)
+            if total > budget:
+                warnings.append(
+                    f"OVERLOAD: {slot.capitalize()} slot has {total} min of untimed "
+                    f"tasks but only {budget} min are realistic for that slot."
+                )
+
+        return warnings
+
     def check_constraints(self, current_total: int, candidate: Task) -> bool:
         """Return True if adding candidate keeps the plan within the owner's
         available time budget. Called incrementally inside generate_plan() so
@@ -206,37 +358,104 @@ class Scheduler:
         """
         return current_total + candidate.duration_minutes <= self.owner.get_available_time()
 
-    def generate_plan(self) -> list[ScheduledTask]:
-        """Build daily_plan from owner → pets → tasks.
-        1. Collect all tasks across all pets.
-        2. Call prioritize_tasks() to order by time slot then priority.
-        3. Add tasks one-by-one, calling check_constraints() before each;
-           skip tasks that would exceed the time budget.
-        4. Wrap each accepted task in a ScheduledTask with a reason string.
+    def generate_plan(self, sort_mode: str = "priority") -> list[ScheduledTask]:
+        """Build daily_plan from owner → pets → tasks, honouring owner preferences.
+
+        Parameters
+        ----------
+        sort_mode : str
+            Controls the order in which tasks compete for the time budget:
+            "priority" (default) — slot bucket first, then priority number
+                                   (1 = highest).  Use when importance should
+                                   determine what gets a slot.
+            "clock"             — slot bucket first, then start_time ("HH:MM"),
+                                   then priority.  Use when the real-world clock
+                                   order matters more than abstract importance,
+                                   e.g. a vet appointment at 09:00 must go first
+                                   regardless of its priority number.
+            The chosen mode is recorded in every ScheduledTask.reason string so
+            the plan is self-documenting.
+
+        Steps:
+        1. Read owner preferences (avoid_time, no_concurrent_pets).
+        2. Collect all tasks across all pets; drop any in an avoided slot.
+        3. Sort by the chosen sort_mode.
+        4. Add tasks one-by-one:
+             a. check_constraints() — skip if time budget exceeded.
+             b. cross-pet overlap check — skip if no_concurrent_pets blocks it.
+             c. Accept: wrap in ScheduledTask with a reason string that records
+                the sort mode and which preferences were active.
         Returns the completed daily_plan.
         """
+        if sort_mode not in ("priority", "clock"):
+            raise ValueError(f"sort_mode must be 'priority' or 'clock', got '{sort_mode}'.")
+
+        # ── Read preferences ────────────────────────────────────────────────
+        avoid = self.owner.preferences.get("avoid_time", [])
+        if isinstance(avoid, str):
+            avoid = [avoid]
+        no_concurrent = self.owner.preferences.get("no_concurrent_pets", False)
+
+        # ── Collect and pre-filter tasks ────────────────────────────────────
         all_tasks: list[Task] = []
         for pet in self.owner.pets:
             all_tasks.extend(pet.get_tasks())
 
-        ordered = self.prioritize_tasks(all_tasks)
+        if avoid:
+            all_tasks = [t for t in all_tasks if t.preferred_time not in avoid]
 
+        ordered = (
+            self.sort_by_time(all_tasks)
+            if sort_mode == "clock"
+            else self.prioritize_tasks(all_tasks)
+        )
+
+        # ── Build the plan ──────────────────────────────────────────────────
         self.daily_plan = []
         total_minutes = 0
 
         for task in ordered:
-            if self.check_constraints(total_minutes, task):
-                reason = (
-                    f"Scheduled in the {task.preferred_time} slot "
-                    f"(priority {task.priority}, {task.duration_minutes} min). "
-                    f"Time used: {total_minutes + task.duration_minutes}/"
-                    f"{self.owner.get_available_time()} min."
-                )
-                self.daily_plan.append(ScheduledTask(task=task, pet_name=task.pet_name, reason=reason))
-                total_minutes += task.duration_minutes
-            else:
-                # Task skipped — budget exhausted for this slot
+            if not self.check_constraints(total_minutes, task):
                 continue
+
+            # Preference: no_concurrent_pets — block cross-pet time overlaps.
+            # Only applies when the candidate has an explicit start_time; untimed
+            # tasks cannot be precisely compared so they pass through unchecked.
+            if no_concurrent and task.start_time:
+                t_start = _to_minutes(task.start_time)
+                t_end   = t_start + task.duration_minutes
+                blocked_by: Optional[str] = None
+                for entry in self.daily_plan:
+                    if entry.pet_name == task.pet_name:
+                        continue                          # same pet — not a concern
+                    if not entry.task.start_time:
+                        continue                          # untimed — skip
+                    e_start = _to_minutes(entry.task.start_time)
+                    e_end   = e_start + entry.task.duration_minutes
+                    if t_start < e_end and e_start < t_end:
+                        blocked_by = entry.task.name
+                        break
+                if blocked_by:
+                    continue                              # drop conflicting task
+
+            # ── Build reason string ─────────────────────────────────────────
+            notes: list[str] = [
+                f"sorted by {sort_mode}",
+            ]
+            if avoid:
+                notes.append(f"avoided slots: {', '.join(avoid)}")
+            if no_concurrent:
+                notes.append("no concurrent pets enforced")
+
+            reason = (
+                f"Scheduled in the {task.preferred_time} slot "
+                f"(priority {task.priority}, {task.duration_minutes} min). "
+                f"Time used: {total_minutes + task.duration_minutes}/"
+                f"{self.owner.get_available_time()} min. "
+                f"[{'; '.join(notes)}]"
+            )
+            self.daily_plan.append(ScheduledTask(task=task, pet_name=task.pet_name, reason=reason))
+            total_minutes += task.duration_minutes
 
         return self.daily_plan
 

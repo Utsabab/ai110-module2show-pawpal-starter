@@ -41,3 +41,10 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+### Smarter Scheduling
+
+- Added feature that implements sorting logic based on start time of task and is able to folter results based on pet's name ans task completion status.
+- It automates recurring tasks as a daily or weekly task is completed, a new instance is automatically created for next occurence. 
+- It detect conflicts between tasks for the same pet or different pets for a Owner and adds Owner's preference to remove such conflicting tasks.
+- Utilizes Owner's preference to avoid certain times for scheduling.
