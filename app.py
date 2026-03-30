@@ -164,14 +164,28 @@ else:
             )
         with col2:
             delete_pet = next(p for p in pets_with_tasks if p.name == delete_pet_name)
-            delete_task_name = st.selectbox(
-                "Task", [t.name for t in delete_pet.get_tasks()], key="delete_task"
+            task_list = delete_pet.get_tasks()
+            name_count = {}
+            for t in task_list:
+                name_count[t.name] = name_count.get(t.name, 0) + 1
+            name_seen = {}
+            task_labels = []
+            for t in task_list:
+                if name_count[t.name] > 1:
+                    name_seen[t.name] = name_seen.get(t.name, 0) + 1
+                    task_labels.append(f"{t.name} #{name_seen[t.name]}")
+                else:
+                    task_labels.append(t.name)
+            delete_task_idx = st.selectbox(
+                "Task", range(len(task_labels)),
+                format_func=lambda i: task_labels[i], key="delete_task"
             )
         with col3:
             st.write("")  # vertical alignment spacer
             if st.button("Delete", key="delete_task_btn"):
-                delete_pet.remove_task(delete_task_name)
-                st.success(f"Deleted '{delete_task_name}' from {delete_pet_name}.")
+                deleted_label = task_labels[delete_task_idx]
+                delete_pet.remove_task_at(delete_task_idx)
+                st.success(f"Deleted '{deleted_label}' from {delete_pet_name}.")
                 st.rerun()
     else:
         st.info("No tasks yet. Add one above.")

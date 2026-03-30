@@ -87,9 +87,9 @@ class Pet:
         """Attach a new task to this pet."""
         self.tasks.append(task)
 
-    def remove_task(self, task_name: str) -> None:
-        """Remove a task by name from this pet."""
-        self.tasks = [t for t in self.tasks if t.name != task_name]
+    def remove_task_at(self, index: int) -> None:
+        """Remove the task at the given list index."""
+        del self.tasks[index]
 
     def get_tasks(self) -> list[Task]:
         """Return all tasks assigned to this pet."""

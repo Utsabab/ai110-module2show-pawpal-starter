@@ -88,3 +88,7 @@ Run python -m pytest
 The tests covers both happy paths and edge cases. Tests include tasks based on priorities, tasks sorted by time, tasks with exact same start times, back to back tasks with no conflicts, daily and weekly tasks creating a new instance for the next task, as-needed tasks with no follow up, filter based on pet with no tasks, and complete_task() for non existent pet, and testing owner's time availability with tasks.
 
 Confidence level: 5
+
+### Demo
+
+- [ ] ![Final demo](images/finaldemo.png)
