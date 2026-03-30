@@ -197,12 +197,19 @@ generate_sort_mode = "clock" if "Clock" in generate_sort else "priority"
 if st.button("Generate schedule"):
     plan = scheduler.generate_plan(sort_mode=generate_sort_mode)
     if plan:
-        st.success(f"Plan generated: {len(plan)} tasks scheduled (sorted by {generate_sort_mode}).")
+        total_min = sum(e.task.duration_minutes for e in plan)
+        budget = scheduler.owner.get_available_time()
+        st.success(f"Plan generated — sorted by {generate_sort_mode}.")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Tasks scheduled", len(plan))
+        c2.metric("Minutes used", f"{total_min} / {budget}")
+        c3.metric("Budget remaining", f"{budget - total_min} min")
     else:
         st.warning("No tasks fit within the available time budget, or no tasks have been added.")
 
 if scheduler.daily_plan:
-    st.text(scheduler.explain_reasoning())
+    with st.expander("View scheduling reasoning"):
+        st.caption(scheduler.explain_reasoning())
 
     conflicts = scheduler.detect_conflicts()
     if conflicts:
@@ -264,18 +271,27 @@ if scheduler.daily_plan:
                 ),
             )
 
+        done_count = sum(1 for e in filtered_entries if e.task.is_completed)
+        pending_count = len(filtered_entries) - done_count
+        sc1, sc2 = st.columns(2)
+        sc1.success(f"{done_count} task(s) done")
+        sc2.warning(f"{pending_count} task(s) pending")
+
+        rows = []
         for e in filtered_entries:
             t = e.task
-            status = "Done" if t.is_completed else "Pending"
-            time_label = f" @ {t.start_time}" if t.start_time else ""
-            due_label = f"  |  Next due: {t.due_date}" if t.due_date else ""
-            st.write(
-                f"**[{t.preferred_time.upper()}]{time_label}** "
-                f"{t.name} — {e.pet_name}  |  "
-                f"{t.duration_minutes} min  |  Priority {t.priority}  |  "
-                f"**{status}**{due_label}"
-            )
-            st.caption(f"Why: {e.reason}")
+            rows.append({
+                "Slot": t.preferred_time.capitalize(),
+                "Time": t.start_time or "—",
+                "Task": t.name,
+                "Pet": e.pet_name,
+                "Type": t.task_type,
+                "Duration (min)": t.duration_minutes,
+                "Priority": t.priority,
+                "Status": "Done" if t.is_completed else "Pending",
+                "Next Due": t.due_date or "—",
+            })
+        st.table(rows)
     else:
         st.info("No tasks match the selected filters.")
 

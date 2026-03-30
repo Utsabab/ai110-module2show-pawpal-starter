@@ -1,4 +1,3 @@
-# PawPal+ UML Class Diagram
 classDiagram
     class Task {
         +String name
@@ -8,6 +7,8 @@ classDiagram
         +int priority
         +String preferred_time
         +String frequency
+        +Optional~String~ start_time
+        +Optional~String~ due_date
         +bool is_completed
         +set_priority(level: int)
         +set_duration(minutes: int)
@@ -57,9 +58,14 @@ classDiagram
         +List~ScheduledTask~ daily_plan
         +add_task(pet: Pet, task: Task)
         +edit_task(pet_name: String, task_name: String, updates: dict)
+        +complete_task(pet_name: String, task_name: String) Optional~Task~
         +prioritize_tasks(tasks: List~Task~) List~Task~
+        +sort_by_time(tasks: List~Task~) List~Task~
+        +filter_by_pet(pet_name: String) List~ScheduledTask~
+        +filter_by_status(completed: bool) List~ScheduledTask~
+        +detect_conflicts() List~String~
         +check_constraints(current_total: int, candidate: Task) bool
-        +generate_plan() List~ScheduledTask~
+        +generate_plan(sort_mode: String) List~ScheduledTask~
         +display_plan()
         +explain_reasoning() String
     }
