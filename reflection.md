@@ -25,7 +25,37 @@ There are four major classes in the UML design which are described below:
 **b. Design changes**
 
 - Did your design change during implementation?
+
+Yes
+
 - If yes, describe at least one change and why you made it.
+
+Missing relationships:
+
+1. Task has no reference back to its Pet.
+
+   Fix: Add a pet_name: str attribute to task, populated when Scheduler.add_task(pet, task) is called.
+
+2. Scheduler collects tasks from pets with no clear trigger generate_plan() is supposed to pull tasks from all owner.pets but Scheduler.add_task() also exists independently. These two paths can diverge, tasks added via add_task() may not be in pet.tasks, and tasks in pet.tasks may not be in daily_plan.
+
+   Fix: Make generate_plan() the authoritative source. It should always pull from owner → pets → tasks. add_task() should write to the pet, not directly to daily_plan.
+
+3. _reasoning is a plain list[str] sitting inside Scheduler.  If you ever want to re-display the plan or export it, you'd need to re-run generate_plan(). The plan and its reasoning are not stored together.
+
+   Fix: A lightweight @dataclass pairing a Task with its reasoning string would make display_plan() and explain_reasoning() much cleaner.
+
+4. check_constraints() is called after plan generation, not during.
+
+   Fix: generate_plan() should call check_constraints() incrementally as tasks are added, stopping or dropping low-priority tasks when the time budget is exhausted.
+
+5. prioritize_tasks() only takes a flat list and has no time-slot awareness.
+
+   Fix: Sort by preferred_time first as a time-slot bucket, then by priority within each bucket.
+
+6. edit_task() matches by name therefore is fragile if two pets share a task name.
+
+   Fix: Change the signature to edit_task(pet_name: str, task_name: str, updates: dict) so the lookup is unambiguous.
+
 
 ---
 

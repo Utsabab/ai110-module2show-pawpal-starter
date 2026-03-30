@@ -1,34 +1,9 @@
+# PawPal+ UML Class Diagram
 classDiagram
-    class Owner {
-        +String name
-        +int age
-        +String gender
-        +int available_hours_per_day
-        +List~String~ preferences
-        +List~Pet~ pets
-        +set_preference(key, value)
-        +add_pet(pet: Pet)
-        +remove_pet(pet_name: String)
-        +get_pets() List~Pet~
-        +get_available_time() int
-    }
-
-    class Pet {
-        +String name
-        +int age
-        +String breed
-        +String gender
-        +List~String~ medical_conditions
-        +List~Task~ tasks
-        +add_task(task: Task)
-        +remove_task(task_name: String)
-        +get_tasks() List~Task~
-        +get_medical_needs() List~String~
-    }
-
     class Task {
         +String name
         +String task_type
+        +String pet_name
         +int duration_minutes
         +int priority
         +String preferred_time
@@ -41,20 +16,56 @@ classDiagram
         +get_details() dict
     }
 
+    class ScheduledTask {
+        +Task task
+        +String pet_name
+        +String reason
+    }
+
+    class Pet {
+        +String name
+        +int age
+        +String breed
+        +String gender
+        +List~String~ medical_conditions
+        +Optional~String~ insurance
+        +List~Task~ tasks
+        +add_task(task: Task)
+        +remove_task(task_name: String)
+        +get_tasks() List~Task~
+        +get_medical_needs() List~String~
+        +get_insurance_details() dict
+    }
+
+    class Owner {
+        +String name
+        +int age
+        +String gender
+        +int available_hours_per_day
+        +dict preferences
+        +List~Pet~ pets
+        +set_preference(key: String, value: Any)
+        +add_pet(pet: Pet)
+        +remove_pet(pet_name: String)
+        +get_pets() List~Pet~
+        +get_available_time() int
+    }
+
     class Scheduler {
         +Owner owner
-        +List~Task~ daily_plan
         +String date
-        +generate_plan() List~Task~
+        +List~ScheduledTask~ daily_plan
+        +add_task(pet: Pet, task: Task)
+        +edit_task(pet_name: String, task_name: String, updates: dict)
+        +prioritize_tasks(tasks: List~Task~) List~Task~
+        +check_constraints(current_total: int, candidate: Task) bool
+        +generate_plan() List~ScheduledTask~
         +display_plan()
         +explain_reasoning() String
-        +prioritize_tasks(tasks: List~Task~) List~Task~
-        +check_constraints() bool
-        +add_task(pet: Pet, task: Task)
-        +edit_task(task_name: String, updates: dict)
     }
 
     Owner "1" --> "0..*" Pet : owns
     Pet "1" --> "0..*" Task : has
     Scheduler "1" --> "1" Owner : manages
-    Scheduler "1" --> "0..*" Task : schedules
+    Scheduler "1" --> "0..*" ScheduledTask : produces
+    ScheduledTask "1" --> "1" Task : wraps

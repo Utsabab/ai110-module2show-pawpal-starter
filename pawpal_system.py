@@ -1,15 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 
 
 # ---------------------------------------------------------------------------
-# Task — a dataclass because it is a plain data container with no behaviour
-# that depends on other classes.  Priority 1 = highest, 5 = lowest.
+# Task — plain data container.
+# pet_name records which pet this task belongs to so the association is
+# preserved once tasks are flattened into daily_plan.
+# Priority 1 = highest, 5 = lowest.
 # ---------------------------------------------------------------------------
 @dataclass
 class Task:
     name: str
     task_type: str                        # walk | feed | groom | med | enrichment
+    pet_name: str                         # which pet this task belongs to
     duration_minutes: int
     priority: int                         # 1 (highest) – 5 (lowest)
     preferred_time: str = "anytime"       # morning | afternoon | evening | anytime
@@ -35,6 +38,18 @@ class Task:
     def get_details(self) -> dict:
         """Return a dictionary summary of the task's attributes."""
         pass
+
+
+# ---------------------------------------------------------------------------
+# ScheduledTask — pairs a Task with its pet and scheduling reason so
+# display_plan() and explain_reasoning() always have full context without
+# needing to re-run generate_plan().
+# ---------------------------------------------------------------------------
+@dataclass
+class ScheduledTask:
+    task: Task
+    pet_name: str
+    reason: str                           # human-readable explanation for this slot
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +110,7 @@ class Owner:
         self.preferences: dict = preferences or {}
         self.pets: list[Pet] = []
 
-    def set_preference(self, key: str, value) -> None:
+    def set_preference(self, key: str, value: Any) -> None:
         """Set or update an owner preference (e.g. preferred_walk_time='morning')."""
         pass
 
@@ -123,38 +138,57 @@ class Owner:
 class Scheduler:
     def __init__(self, owner: Owner, date: str) -> None:
         self.owner = owner
-        self.date = date                  # ISO format: "YYYY-MM-DD"
-        self.daily_plan: list[Task] = []
-        self._reasoning: list[str] = []  # internal log used by explain_reasoning()
+        self.date = date                              # ISO format: "YYYY-MM-DD"
+        self.daily_plan: list[ScheduledTask] = []    # reason stored per entry via ScheduledTask
 
     def add_task(self, pet: Pet, task: Task) -> None:
-        """Add a task to a specific pet and register it with the scheduler."""
+        """Write a task to the pet (single source of truth).
+        generate_plan() pulls from owner → pets → tasks, so tasks must live
+        on the pet — do not write directly to daily_plan here.
+        """
         pass
 
-    def edit_task(self, task_name: str, updates: dict) -> None:
-        """Update attributes of an existing task by name."""
+    def edit_task(self, pet_name: str, task_name: str, updates: dict) -> None:
+        """Update attributes of a task identified by both pet name and task name.
+        Using both avoids ambiguity when multiple pets share a task name
+        (e.g. two pets both have a 'Feed' task).
+        """
         pass
 
     def prioritize_tasks(self, tasks: list[Task]) -> list[Task]:
-        """Sort tasks by priority and preferred_time; return the ordered list."""
-        pass
-
-    def check_constraints(self) -> bool:
-        """Return True if the current daily_plan fits within the owner's available time."""
-        pass
-
-    def generate_plan(self) -> list[Task]:
+        """Sort tasks first by preferred_time bucket
+        (morning → afternoon → evening → anytime), then by priority (1 = highest)
+        within each bucket. Returns the ordered list.
         """
-        Build and store daily_plan from all pet tasks.
-        Considers priority, preferred_time, and owner's available_hours_per_day.
-        Populates self._reasoning with explanations for each scheduling decision.
+        pass
+
+    def check_constraints(self, current_total: int, candidate: Task) -> bool:
+        """Return True if adding candidate keeps the plan within the owner's
+        available time budget. Called incrementally inside generate_plan() so
+        low-priority tasks are dropped when the budget is exhausted rather
+        than forcing a full rebuild.
+        """
+        pass
+
+    def generate_plan(self) -> list[ScheduledTask]:
+        """Build daily_plan from owner → pets → tasks.
+        1. Collect all tasks across all pets.
+        2. Call prioritize_tasks() to order by time slot then priority.
+        3. Add tasks one-by-one, calling check_constraints() before each;
+           skip tasks that would exceed the time budget.
+        4. Wrap each accepted task in a ScheduledTask with a reason string.
+        Returns the completed daily_plan.
         """
         pass
 
     def display_plan(self) -> None:
-        """Print the daily plan in a human-readable format."""
+        """Print the daily plan in a human-readable format, drawing reason
+        strings from each ScheduledTask entry.
+        """
         pass
 
     def explain_reasoning(self) -> str:
-        """Return a string explaining why the plan was ordered the way it was."""
+        """Return a single string summarising why the plan was ordered and
+        filtered the way it was, derived from ScheduledTask.reason entries.
+        """
         pass
