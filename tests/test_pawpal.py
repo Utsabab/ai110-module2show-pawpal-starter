@@ -23,13 +23,13 @@ def make_task(name="Walk", preferred_time="morning", frequency="daily",
 
 def make_pet():
     """Helper to create a basic Pet."""
-    return Pet(name="Luna", age=3, breed="Golden Retriever", gender="female")
+    return Pet(name="Luna", age=3, pet_type="Golden Retriever", gender="female")
 
 
 def make_scheduler(available_hours=8, date_str="2026-03-30"):
     """Helper to create a Scheduler with one pet (Luna) already attached."""
     owner = Owner(name="Alex", age=30, gender="female", available_hours_per_day=available_hours)
-    pet = Pet(name="Luna", age=3, breed="Golden Retriever", gender="female")
+    pet = Pet(name="Luna", age=3, pet_type="Golden Retriever", gender="female")
     owner.add_pet(pet)
     scheduler = Scheduler(owner=owner, date=date_str)
     return scheduler, owner, pet
@@ -171,7 +171,7 @@ def test_as_needed_no_recurrence():
 # ---------------------------------------------------------------------------
 def test_pet_with_no_tasks():
     scheduler, owner, _ = make_scheduler()
-    ghost = Pet(name="Ghost", age=1, breed="Husky", gender="male")
+    ghost = Pet(name="Ghost", age=1, pet_type="Husky", gender="male")
     owner.add_pet(ghost)
 
     scheduler.generate_plan()

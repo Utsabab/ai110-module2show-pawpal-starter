@@ -17,7 +17,7 @@ owner = Owner(
 luna = Pet(
     name="Luna",
     age=3,
-    breed="Golden Retriever",
+    pet_type="Golden Retriever",
     gender="female",
     medical_conditions=["hip dysplasia"],
     insurance="Trupanion",
@@ -26,7 +26,7 @@ luna = Pet(
 max = Pet(
     name="Max",
     age=5,
-    breed="Tabby Cat",
+    pet_type="Tabby Cat",
     gender="male",
 )
 

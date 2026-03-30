@@ -74,12 +74,12 @@ with col1:
 with col2:
     pet_age = st.number_input("Age", min_value=0, max_value=30, value=2)
 with col3:
-    pet_breed = st.text_input("Breed", value="Shiba Inu")
+    pet_breed = st.text_input("Pet type", value="Shiba Inu")
 with col4:
     pet_gender = st.selectbox("Gender", ["male", "female"])
 
 if st.button("Add pet"):
-    pet = Pet(name=pet_name, age=pet_age, breed=pet_breed, gender=pet_gender)
+    pet = Pet(name=pet_name, age=pet_age, pet_type=pet_breed, gender=pet_gender)
     owner.add_pet(pet)
     st.success(f"Added {pet_name} to {owner.name}'s pets.")
 

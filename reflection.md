@@ -18,7 +18,7 @@ The UML has four major classes namely, Owner, Pet, Task and Scheduler. Owner cla
 There are four major classes in the UML design which are described below:
 
 1. **Owner:** Owner class has details on owner's name, age, gender, available hours, and preferences and has methods such as set_preferences, add & remove pet, get available times for owner.
-2. **Pet**: Pet class has details on pet's name, gender, age, breed, medical conditions, insurance and all the tasks associated with the pet and can perform operations such as add & remove task, display all tasks, insurance details and medical needs of the pet.
+2. **Pet**: Pet class has details on pet's name, gender, age, pet type, medical conditions, insurance and all the tasks associated with the pet and can perform operations such as add & remove task, display all tasks, insurance details and medical needs of the pet.
 3. **Task**: Task class has task name, task type, time duration, priority value, preferred time, is completed marker, and frequency as attributse and has methods such as set priority, set duration, mark complete, mark incomplete, and get details.
 4. **Scheduler**: Scheduler class schedules tasks for owners where a scheduler can have only 1 owner and 0 to many tasks. The attributes are owner, date, daily plan and reasoning for daily plan. The methods associated are add task, edit task, prioritize task, check owner constraint, generate plan, display plan and explain reasoning method to display the reasoning for the plan generated.
 

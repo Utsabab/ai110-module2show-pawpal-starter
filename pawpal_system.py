@@ -77,7 +77,7 @@ class ScheduledTask:
 class Pet:
     name: str
     age: int
-    breed: str
+    pet_type: str
     gender: str
     medical_conditions: list[str] = field(default_factory=list)
     insurance: Optional[str] = None       # insurance provider name, or None if uninsured

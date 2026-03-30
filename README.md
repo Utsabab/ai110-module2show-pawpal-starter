@@ -22,6 +22,38 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Features
+
+### Two-mode task sorting
+Tasks can be ordered two ways, selectable at plan-generation time via `generate_plan(sort_mode=...)`:
+- **Priority mode** (`prioritize_tasks`): sorts by time-of-day slot first (morning → afternoon → evening → anytime), then by priority number (1 = highest) within each slot. Use this when importance should determine what gets scheduled.
+- **Clock mode** (`sort_by_time`): sorts by slot, then by exact `start_time` ("HH:MM"), then by priority on ties. Untimed tasks (no `start_time`) sort to the top of their slot. Use this when a fixed appointment time must be honoured regardless of priority.
+
+### Daily plan generation with time-budget enforcement
+`generate_plan` assembles a `daily_plan` from all owner → pet → task data. Tasks are added one by one; `check_constraints` drops any task that would exceed the owner's `available_hours_per_day` budget. Owner preferences are applied first:
+- **`avoid_time`**: any task whose `preferred_time` matches an avoided slot is excluded before sorting.
+- **`no_concurrent_pets`**: timed tasks that overlap with another pet's already-scheduled task are skipped, preventing the owner from being in two places at once.
+
+### Conflict detection
+`detect_conflicts` scans the completed `daily_plan` using two independent strategies:
+- **Timed overlap**: converts every `start_time` to minutes since midnight, computes `end = start + duration_minutes`, and flags every pair where the intervals overlap (`a.start < b.end AND b.start < a.end`). Catches both same-pet and cross-pet conflicts.
+- **Slot overload**: groups untimed tasks by slot and sums their durations. Emits an `OVERLOAD` warning if the total exceeds the realistic budget for that slot (morning: 240 min, afternoon: 240 min, evening: 180 min, anytime: 60 min).
+
+### Automatic recurrence for repeating tasks
+`complete_task` marks a task done and, for recurring frequencies, immediately registers the next occurrence on the same pet:
+- **Daily** tasks get a follow-up with `due_date = today + 1 day`.
+- **Weekly** tasks get a follow-up with `due_date = today + 7 days`.
+- **As-needed** tasks are marked complete with no follow-up created.
+
+The next occurrence is a fresh `Task` copy (`is_completed=False`, updated `due_date`) ready to be picked up by the next `generate_plan` call.
+
+### Filtering
+- **`filter_by_pet(pet_name)`**: returns only the `ScheduledTask` entries for the named pet. Comparison is case-insensitive and trims whitespace, so `"luna"`, `"Luna"`, and `" Luna "` all match.
+- **`filter_by_status(completed)`**: returns entries that are done (`True`) or pending (`False`), useful for showing progress through the day.
+
+### Schedule reasoning
+`explain_reasoning` returns a human-readable summary of why the plan was ordered the way it was — which sort mode was active, which slots were avoided, and how much of the time budget each task consumed. Each `ScheduledTask` also carries its own `reason` string so individual entries are self-documenting without re-running the planner.
+
 ## Getting started
 
 ### Setup
