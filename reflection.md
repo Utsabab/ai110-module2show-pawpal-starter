@@ -87,12 +87,22 @@ This tradeoff is made by Scheduler in this scenario as the linear task picking a
 **a. How you used AI**
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
+
+AI was used to brainstrom design during the initial phase of the project and help create skeleton for the classes involved in the app. AI also immensely helped make the app core logic coherent. Debugging, refactoring and creating test cases were the most important tasks performed while collaborating with AI.
+
 - What kinds of prompts or questions were most helpful?
+
+Prompts with #file:file_name and #codebase was helpful as it knew exactly where to look at in the filesystem. Prompts providing further context and more details came up with better results.
 
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
+
+One AI suggestion code implementation had task deletion method incorrectly implemented. If two tasks are of the same name, while deleting one task with that name, it ended up deleting all the task with the same name.
+
 - How did you evaluate or verify what the AI suggested?
+
+I evaluated the functionality by testing in UI and ended up refactoring the code to make the task deletion method identify task uniquely.
 
 ---
 
@@ -101,13 +111,24 @@ This tradeoff is made by Scheduler in this scenario as the linear task picking a
 **a. What you tested**
 
 - What behaviors did you test?
+
+The testcases tested marking tasks complete, adding tasks and counting tasks for each pet, prioritizing task method, sort by time, detecting conflicts, creating new instance of recurring task, filter by pet, complete task of non existent pet, and owner's availability.
+
 - Why were these tests important?
+
+These are the core logic of the app which helps create plan for owner based on owner's preference, priorities to make a reliable daily plan for pet care.
 
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
+
+Scheduler works correctly based on all the assumptions we made throughour this readme. The core logic and function of scheduler works reliably.
+
 - What edge cases would you test next if you had more time?
 
+Some edge cases to test are 
+
+I would probe generate_plan function more as it contains the core logic of the scheduler. Scenarios such as Owner with 0 available hours, avoid_time functionality that avoids a certain time of the day from the plan, filtering tasks with no start times, etc.
 ---
 
 ## 5. Reflection
@@ -116,10 +137,16 @@ This tradeoff is made by Scheduler in this scenario as the linear task picking a
 
 - What part of this project are you most satisfied with?
 
+Implementing the core logic and refactoring to integrated time conflicts is fundamental part of creating a robust plan. Adding that feature makes this plan genetaring app worth it.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+I would redesing to add additional features like utilizing AI to recommend tasks for pets such as when was the last grooming done, or when was the last doctor's visit.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+AI can help get a clear picture of what the app is capable of doing and help focus on designing the flow of the app before diving into the core implementation which can make development a lot smoother.
